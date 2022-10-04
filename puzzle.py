@@ -5,6 +5,7 @@ import sys
 import math
 import time
 import queue as Q
+import heapq
 
 
 #### SKELETON CODE ####
@@ -25,6 +26,9 @@ class Frontier(object):
         elif switch == "stack":
             self.stack = []
             self.sset = set()
+        elif switch == "heap":
+            self.heap = []
+            self.hset = set()
         pass
 
     #queue methods
@@ -63,6 +67,36 @@ class Frontier(object):
         else:
             return False
 
+    def heap_push(self, node, priority):
+        #add the new thing to the queue with two different priorities,
+        #heap -- list of tuples
+        self.hset.add(tuple(node.config))
+        return heapq.heappush(self.heap, (node,priority))
+
+
+    def heap_search(self, node):
+        if tuple(node.config) in self.hset:
+            return True
+        else:
+            return False
+
+    def deleteMin(self):
+        deleted = heapq.heappop(self.heap)
+        #print(deleted)
+        #returns a tuple {node, cost}
+        remove = deleted[0]
+        #print(remove.config)
+        self.hset.remove(tuple(remove.config))
+        return deleted[0]
+
+    def remove_duplicate(self, node, total_cost):
+        for state in self.heap:
+            if state.config == node.config:
+                self.heap.remove(state.config)
+                self.hset.remove(tuple(state.config))
+
+    def heap_empty(self):
+        return len(self.heap) == 0
 
 
 
@@ -100,6 +134,9 @@ class PuzzleState(object):
         # Get the index and (row, col) of empty block
         self.blank_index = self.config.index(0)
 
+    def __lt__(self, other):
+        return self.priority < other.priority
+
     def display(self):
         """ Display this Puzzle state as a n*n board """
         for i in range(self.n):
@@ -129,7 +166,7 @@ class PuzzleState(object):
         Moves the blank tile one row down.
         :return a PuzzleState with the new configuration
         """
-        new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost)
+        new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost+1)
         if new_state.blank_index < (len(self.config) - self.n):
             new_state.config[new_state.blank_index], new_state.config[new_state.blank_index + self.n] = new_state.config[
                                                                                                        new_state.blank_index + self.n], \
@@ -147,7 +184,7 @@ class PuzzleState(object):
         Moves the blank tile one column to the left.
         :return a PuzzleState with the new configuration
         """
-        new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost)
+        new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost+1)
         if (new_state.blank_index % self.n) != 0 and new_state.blank_index > 0:
             new_state.config[new_state.blank_index], new_state.config[new_state.blank_index - 1] = new_state.config[
                                                                                                        new_state.blank_index - 1], \
@@ -169,7 +206,7 @@ class PuzzleState(object):
         #  3, 4, 5
         #  6, 7, 8]
 
-        new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost)
+        new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost+1)
         if (new_state.blank_index % self.n) != self.n - 1:  # and new_state.blank_index < self.n:
             new_state.config[new_state.blank_index], new_state.config[new_state.blank_index + 1] = new_state.config[
                                                                                                        new_state.blank_index + 1], \
@@ -281,18 +318,81 @@ def dfs_search(initial_state):
 def A_star_search(initial_state):
     """A * search"""
     ### STUDENT CODE GOES HERE ###
+    frontier = Frontier("heap")
+    cost = calculate_total_cost(initial_state)
+    frontier.heap_push(initial_state, cost)
+    explored = set()
+
+    while not frontier.heap_empty():
+        state = frontier.deleteMin()
+        explored.add(tuple(state.config)) #add it with queue
+        moves = []
+
+        if test_goal(state):
+            while state.parent:
+                #print(state.config)
+                moves.append(state.action)
+                state = state.parent
+            print(moves[::-1])
+            return True
+
+        for neighbor in state.expand():
+            if tuple(neighbor.config) not in explored and not frontier.heap_search(neighbor):
+                cost = calculate_total_cost(state)
+                frontier.heap_push(state, cost)
+            elif frontier.heap_search(neighbor):
+                #check if lower cost, then replace it
+                print("siu")
+                if calculate_total_cost(frontier.heap_search(neighbor)) > calculate_total_cost(neighbor):
+                    #remove it from the heap
+                    frontier.remove_duplicate(neighbor)
+                    #add
+                    frontier.heap_push(neighbor, calculate_total_cost(neighbor))
+
+            else:
+                print("WHY")
+
+
+    return False
     pass
 
 
 def calculate_total_cost(state):
     """calculate the total estimated cost of a state"""
     ### STUDENT CODE GOES HERE ###
+    # cost = initial_state.cost + manhattan_cost
+
+    TC = 0
+    for tile in state.config:
+        TC = TC + calculate_manhattan_dist(tile, state.config[tile], state.n)
+    return TC + state.cost
     pass
 
 
 def calculate_manhattan_dist(idx, value, n):
     """calculate the manhattan distance of a tile"""
     ### STUDENT CODE GOES HERE ###
+    #M = abs(x1 - y1) + abs(x2 - y2)
+    #how to determine how far a tile is from where it is supposed to be?
+    # iterate through rows, columns
+    # do it from index, then do it for goal
+    #     subtract magniutdes to find it
+    # row 0, 1, 2
+    # col 0, 1, 2
+    # to find where it should be
+    # /3 = row numbers
+    # %3 = row numbers
+
+    start_row = int(idx / 3)
+    start_col = idx % 3
+
+    goal_row = int(value / 3)
+    goal_col = value % 3
+
+    distance = abs(start_row - goal_row) + abs(start_col - goal_col)
+    return distance
+
+
     pass
 
 
@@ -300,7 +400,7 @@ def test_goal(puzzle_state):
     """test the state is the goal state or not"""
     ### STUDENT CODE GOES HERE ###
     copy = puzzle_state.config.copy()
-   # print(copy)
+    #print(copy)
 
     new_list = sorted(copy)
     #print(sorted(puzzle_state.config))
@@ -325,7 +425,7 @@ def main():
         print(bfs_search(PuzzleState([6,1,8,4,0,2,7,3,5], 3)))
     elif search_mode == "dfs":
         print(dfs_search(hard_state))
-    # elif search_mode == "ast": A_star_search(hard_state)
+    elif search_mode == "ast": A_star_search(hard_state)
     else:
         print("Enter valid command arguments !")
 
