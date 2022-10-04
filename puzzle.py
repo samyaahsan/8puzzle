@@ -67,11 +67,11 @@ class Frontier(object):
         else:
             return False
 
-    def heap_push(self, node, priority):
+    def heap_push(self, priority, node):
         #add the new thing to the queue with two different priorities,
         #heap -- list of tuples
         self.hset.add(tuple(node.config))
-        return heapq.heappush(self.heap, (node,priority))
+        return heapq.heappush(self.heap, (priority, node))
 
 
     def heap_search(self, node):
@@ -80,23 +80,30 @@ class Frontier(object):
         else:
             return False
 
-    def deleteMin(self):
+    def delete_min(self):
         deleted = heapq.heappop(self.heap)
         #print(deleted)
         #returns a tuple {node, cost}
-        remove = deleted[0]
+        remove = list(deleted)[1]
         #print(remove.config)
         self.hset.remove(tuple(remove.config))
-        return deleted[0]
+        return remove
 
-    def remove_duplicate(self, node, total_cost):
-        for state in self.heap:
-            if state.config == node.config:
-                self.heap.remove(state.config)
-                self.hset.remove(tuple(state.config))
+    #won't work
+    def remove_duplicate(self, node):
+        for item in self.heap:
+            if item[1].config == node.config:
+                self.heap.remove(item)
+                self.hset.remove(tuple(node.config))
 
     def heap_empty(self):
         return len(self.heap) == 0
+
+    #won't work
+    def get_element(self, node):
+        for state in self.heap:
+            if state[1].config == node.config:
+                return state[1]
 
 
 
@@ -135,7 +142,7 @@ class PuzzleState(object):
         self.blank_index = self.config.index(0)
 
     def __lt__(self, other):
-        return self.priority < other.priority
+        return self.cost < other.cost
 
     def display(self):
         """ Display this Puzzle state as a n*n board """
@@ -320,12 +327,12 @@ def A_star_search(initial_state):
     ### STUDENT CODE GOES HERE ###
     frontier = Frontier("heap")
     cost = calculate_total_cost(initial_state)
-    frontier.heap_push(initial_state, cost)
+    frontier.heap_push(cost, initial_state)
     explored = set()
 
     while not frontier.heap_empty():
-        state = frontier.deleteMin()
-        explored.add(tuple(state.config)) #add it with queue
+        state = frontier.delete_min()
+        explored.add(tuple(state.config))
         moves = []
 
         if test_goal(state):
@@ -337,21 +344,19 @@ def A_star_search(initial_state):
             return True
 
         for neighbor in state.expand():
-            if tuple(neighbor.config) not in explored and not frontier.heap_search(neighbor):
-                cost = calculate_total_cost(state)
-                frontier.heap_push(state, cost)
+            #tuple(neighbor.config) not in explored
+            if neighbor not in explored and not frontier.heap_search(neighbor):
+                cost = calculate_total_cost(neighbor)
+                frontier.heap_push(cost, neighbor)
+
             elif frontier.heap_search(neighbor):
                 #check if lower cost, then replace it
-                print("siu")
-                if calculate_total_cost(frontier.heap_search(neighbor)) > calculate_total_cost(neighbor):
+                #get the cost of the state that is in the frontier
+                if calculate_total_cost(frontier.get_element(neighbor)) > calculate_total_cost(neighbor):
                     #remove it from the heap
                     frontier.remove_duplicate(neighbor)
                     #add
-                    frontier.heap_push(neighbor, calculate_total_cost(neighbor))
-
-            else:
-                print("WHY")
-
+                    frontier.heap_push(calculate_total_cost(neighbor), neighbor)
 
     return False
     pass
