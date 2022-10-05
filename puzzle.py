@@ -71,7 +71,7 @@ class Frontier(object):
         #add the new thing to the queue with two different priorities,
         #heap -- list of tuples
         self.hset.add(tuple(node.config))
-        return heapq.heappush(self.heap, (priority, node))
+        heapq.heappush(self.heap, (priority, node))
 
 
     def heap_search(self, node):
@@ -99,7 +99,6 @@ class Frontier(object):
     def heap_empty(self):
         return len(self.heap) == 0
 
-    #won't work
     def get_element(self, node):
         for state in self.heap:
             if state[1].config == node.config:
@@ -142,7 +141,48 @@ class PuzzleState(object):
         self.blank_index = self.config.index(0)
 
     def __lt__(self, other):
-        return self.cost < other.cost
+        if self.cost < other.cost:
+            return True
+        elif self.action == "Up":
+            if other.action == "Up":
+                return False
+            elif other.action == "Down":
+                return False
+            elif other.action == "Left":
+                return False
+            elif other.action == "Right":
+                return False
+
+        elif self.action == "Down":
+            if other.action == "Up":
+                return True
+            elif other.action == "Down":
+                return False
+            elif other.action == "Left":
+                return True
+            elif other.action == "Right":
+                return True
+
+        elif self.action == "Left":
+            if other.action == "Up":
+                return True
+            elif other.action == "Down":
+                return True
+            elif other.action == "Left":
+                return True
+            elif other.action == "Right":
+                return False
+
+        elif self.action == "Right":
+            if other.action == "Up":
+                return True
+            elif other.action == "Down":
+                return True
+            elif other.action == "Left":
+                return True
+            elif other.action == "Right":
+                return True
+
 
     def display(self):
         """ Display this Puzzle state as a n*n board """
@@ -251,6 +291,8 @@ class PuzzleState(object):
 ### Students need to change the method to have the corresponding parameters
 def writeOutput():
     ### Student Code Goes here
+    #path to goal: done
+
     pass
 
 
@@ -336,12 +378,15 @@ def A_star_search(initial_state):
         moves = []
 
         if test_goal(state):
+            tc = state.cost
             while state.parent:
                 #print(state.config)
                 moves.append(state.action)
                 state = state.parent
             print(moves[::-1])
+            print(tc)
             return True
+
 
         for neighbor in state.expand():
             #tuple(neighbor.config) not in explored
@@ -355,8 +400,11 @@ def A_star_search(initial_state):
                 if calculate_total_cost(frontier.get_element(neighbor)) > calculate_total_cost(neighbor):
                     #remove it from the heap
                     frontier.remove_duplicate(neighbor)
+
                     #add
                     frontier.heap_push(calculate_total_cost(neighbor), neighbor)
+                    #print(calculate_total_cost(neighbor))
+
 
     return False
     pass
@@ -369,7 +417,8 @@ def calculate_total_cost(state):
 
     TC = 0
     for tile in state.config:
-        TC = TC + calculate_manhattan_dist(tile, state.config[tile], state.n)
+        if tile != 0:
+            TC = TC + calculate_manhattan_dist(tile, state.config[tile], state.n)
     return TC + state.cost
     pass
 
