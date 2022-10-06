@@ -7,6 +7,8 @@ import time
 import queue as Q
 import heapq
 
+import resource
+
 
 #### SKELETON CODE ####
 ## The Class that Represents the Puzzle
@@ -196,7 +198,7 @@ class PuzzleState(object):
         """
         #(self, config, n, parent=None, action="Initial", cost=0):
         new_state = PuzzleState(self.config[:], self.n, self, self.action, self.cost + 1)
-        if new_state.blank_index > self.n:
+        if new_state.blank_index >= self.n:
             new_state.config[new_state.blank_index], new_state.config[new_state.blank_index - self.n] = new_state.config[
                                                                                                        new_state.blank_index - self.n], \
                                                                                                    new_state.config[
@@ -289,10 +291,15 @@ class PuzzleState(object):
 # Function that Writes to output.txt
 
 ### Students need to change the method to have the corresponding parameters
-def writeOutput():
+def writeOutput(moves, cost_of_path, nodes_expanded, search_depth, max_search_depth):
     ### Student Code Goes here
     #path to goal: done
-
+    output_file = open("output.txt", "w")
+    output_file.write("path_to_goal: " + moves + "\n")
+    output_file.write("cost_of_path: " + cost_of_path + "\n")
+    output_file.write("nodes_expanded: " + nodes_expanded + "\n")
+    output_file.write("search_depth: " + search_depth + "\n")
+    output_file.write("max_search_depth: " + max_search_depth + "\n")
     pass
 
 
@@ -305,10 +312,13 @@ def bfs_search(initial_state):
     frontier.put(initial_state)
     explored = set()
     moves = []
+    nodes_expanded = 0
+    max_search_depth = 0
 
     while not frontier.empty():
         # print(explored)
         state = frontier.get()
+
         #print(state.config)
         explored.add(tuple(state.config))
         #print(tuple(state.config))
@@ -320,11 +330,16 @@ def bfs_search(initial_state):
                 moves.append(state.action)
                 state = state.parent
             print(moves[::-1])
+            print(nodes_expanded)
+            writeOutput(str(moves[::-1]), str(len(moves)), str(nodes_expanded), str(len(moves)), str(max_search_depth))
             return True
 
+        nodes_expanded = nodes_expanded + 1
         for neighbor in state.expand():
             #print(neighbor.config)
+            #ERROR: first condition not working?
             if tuple(neighbor.config) not in explored and not frontier.search(neighbor):
+                max_search_depth = max(max_search_depth, neighbor.cost)
             #if tuple(neighbor.config) not in explored:
                 frontier.put(neighbor)
 
@@ -342,6 +357,8 @@ def dfs_search(initial_state):
     #print(frontier.pop().config)
     explored = set()
     moves = []
+    nodes_expanded = 0
+    max_search_depth = 0
 
     while not frontier.stack_empty():
         state = frontier.pop()
@@ -354,10 +371,14 @@ def dfs_search(initial_state):
                 moves.append(state.action)
                 state = state.parent
             print(moves[::-1])
+            print(nodes_expanded)
+            writeOutput(str(moves[::-1]), str(len(moves)), str(nodes_expanded), str(len(moves)), str(max_search_depth))
             return True
 
+        nodes_expanded = nodes_expanded + 1
         for neighbor in state.expand()[::-1]:
-            if not frontier.stack_search(neighbor) and neighbor not in explored:
+            if not frontier.stack_search(neighbor) and tuple(neighbor.config) not in explored:
+                max_search_depth = max(max_search_depth, neighbor.cost)
                 frontier.push(neighbor)
 
     return False
@@ -371,6 +392,8 @@ def A_star_search(initial_state):
     cost = calculate_total_cost(initial_state)
     frontier.heap_push(cost, initial_state)
     explored = set()
+    nodes_expanded = 0
+    max_search_depth = 0
 
     while not frontier.heap_empty():
         state = frontier.delete_min()
@@ -384,13 +407,14 @@ def A_star_search(initial_state):
                 moves.append(state.action)
                 state = state.parent
             print(moves[::-1])
-            print(tc)
+            writeOutput(str(moves[::-1]), str(len(moves)), str(nodes_expanded), str(len(moves)), str(max_search_depth))
             return True
 
-
+        nodes_expanded = nodes_expanded + 1
         for neighbor in state.expand():
             #tuple(neighbor.config) not in explored
             if neighbor not in explored and not frontier.heap_search(neighbor):
+                max_search_depth = max(max_search_depth, neighbor.cost)
                 cost = calculate_total_cost(neighbor)
                 frontier.heap_push(cost, neighbor)
 
@@ -475,8 +499,9 @@ def main():
     hard_state = PuzzleState(begin_state, board_size)
     start_time = time.time()
 
+    dfs_start_ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     if search_mode == "bfs":
-        print(bfs_search(PuzzleState([6,1,8,4,0,2,7,3,5], 3)))
+        print(bfs_search(hard_state))
     elif search_mode == "dfs":
         print(dfs_search(hard_state))
     elif search_mode == "ast": A_star_search(hard_state)
@@ -484,7 +509,13 @@ def main():
         print("Enter valid command arguments !")
 
     end_time = time.time()
-    print("Program completed in %.3f second(s)" % (end_time - start_time))
+    dfs_ram = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - dfs_start_ram)/(2**20)
+    print("running_time: %.8f second(s)" % (end_time - start_time))
+    file1 = open("output.txt", "a")  # append mode
+    file1.write(str("running_time: %.8f" % (end_time - start_time) + "\n"))
+
+    file1.write(str("dfs_ram usage: " + str(dfs_ram) + "\n"))
+    file1.close()
 
 
 if __name__ == '__main__':
